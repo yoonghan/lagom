@@ -30,8 +30,8 @@ sudo docker run -p9000:9000 \
 --net justicenetwork --ip 172.20.0.2 \
 -e CLUSTER_IP=172.20.0.2 \
 -e CLUSTER_IP2=192.168.1.38 -e CLUSTER_PORT2=2551 \
--e CLUSTER_IP3=192.168.1.193 -e CLUSTER_PORT3=2551 \
--e HOST_IP=192.168.1.4 -e HOST_PORT=2551 \
+-e CLUSTER_IP3=192.168.1.4 -e CLUSTER_PORT3=2551 \
+-e HOST_IP=192.168.1.193 -e HOST_PORT=2551 \
 192.168.1.244:5000/justice-league
 ```
  6. Execute in browser
@@ -111,7 +111,7 @@ cassandra.default {
 ```
 
 *Problem*: Using seeds connection, the connection does not connect.
-*Solution*: The seeds bind-host must be correctly set to the docker's internal ip. To check the internal ip use:
+*Solution*: The seeds bind-host must be correctly set to the docker's internal ip. Do not use 127.0.0.1. To check the internal ip use:
 ```
 docker inspect <container_id>
 ```
