@@ -16,12 +16,23 @@ docker run -p9042:9042 cassandra
 ```
  4. Change the local pc ip of connection point in justice-league-impl/src/main/resources/application.conf
 ```
-//Docker's Host IP, not docker's ip
+//Cassandra's docker Host IP, not docker's ip
  contact-points = ["192.168.1.244"]
 ```
- 5. Execute docker with TAG given
+ 5. Create a docker network
 ```
-docker run -p9000:9000 justice-league-impl:1.0-SNAPSHOT
+sudo docker network create --subnet=172.20.0.0/16 justicenetwork
+```
+ 6. Execute docker with TAG given, for same server the -p9000:9000 needs to be removed. p2551 and host port need to change
+```
+sudo docker run -p9000:9000 \
+-p2551:2551 \
+--net justicenetwork --ip 172.20.0.2 \
+-e CLUSTER_IP=172.20.0.2 \
+-e CLUSTER_IP2=192.168.1.38 -e CLUSTER_PORT2=2551 \
+-e CLUSTER_IP3=192.168.1.193 -e CLUSTER_PORT3=2551 \
+-e HOST_IP=192.168.1.4 -e HOST_PORT=2551 \
+192.168.1.244:5000/justice-league
 ```
  6. Execute in browser
 ```
@@ -33,6 +44,29 @@ http://localhost:9000/api/hero/GalGadot
  *Solution*: Add seeds into application.conf. But because serverlocator runs in single cluster, I have added into
 ```
  lagom.defaults.cluster.join-self = on
+
+## Seeds should be open like this, there must be 2 or more seeds defined
+#akka.cluster.seed-nodes = [
+#  "akka.tcp://application@"${HOST_IP}":"${HOST_PORT},
+#  "akka.tcp://application@"${CLUSTER_IP2}":"${CLUSTER_PORT2}
+#  "akka.tcp://application@"${CLUSTER_IP3}":"${CLUSTER_PORT3}
+#]
+#akka {
+#  remote {
+#    netty.tcp {
+#      hostname = ${HOST_IP}      # external (logical) hostname
+#      port = ${HOST_PORT}                   # external (logical) port
+#
+#      bind-hostname = ${CLUSTER_IP} # internal (bind) hostname
+#      bind-port = ${HOST_PORT}              # internal (bind) port
+#    }
+#}
+#}
+# Close this if seeds nodes are defined.
+lagom.defaults.cluster.join-self = on
+lagom.persistence.ask-timeout=30s
+
+
 ```
 
 *Problem*: Ask timed out on [Actor[akka://application/system/sharding/JusticeLeagueEntity#-235261372]] after [5000 ms]. Sender[null] sent message of type "com.lightbend.lagom.scaladsl.persistence.CommandEnvelope".
@@ -74,4 +108,14 @@ cassandra.default {
  ## override Lagom’s ServiceLocator-based ConfigSessionProvider
  session-provider = akka.persistence.cassandra.ConfigSessionProvider
 }
+```
+
+*Problem*: Using seeds connection, the connection does not connect.
+*Solution*: The seeds bind-host must be correctly set to the docker's internal ip. To check the internal ip use:
+```
+docker inspect <container_id>
+```
+Else another solution is to create a docker network and assign static ip.
+```
+docker create network
 ```
