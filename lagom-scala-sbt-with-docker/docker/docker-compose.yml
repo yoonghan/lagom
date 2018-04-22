@@ -1,0 +1,75 @@
+version: '3'
+services:
+  lagom-seed-1:
+    image: ${DB_HOST_IP}:5000/justice-league
+    ports:
+      - "9000:9000"
+    environment:
+      - DB_HOST_IP=192.168.1.244
+      - BIND_IP=0.0.0.0
+      - CLUSTER_IP1=lagom-seed-1
+      - CLUSTER_IP2=lagom-seed-2
+      - CLUSTER_IP3=lagom-seed-3
+      - HOST_IP=lagom-seed-1
+      - HOST_PORT=2551
+    networks:
+      justicenetwork:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 20s
+        max_attempts: 3
+        window: 120s
+  lagom-seed-2:
+    image: ${DB_HOST_IP}:5000/justice-league
+    environment:
+      - DB_HOST_IP=192.168.1.244
+      - BIND_IP=0.0.0.0
+      - CLUSTER_IP1=lagom-seed-1
+      - CLUSTER_IP2=lagom-seed-2
+      - CLUSTER_IP3=lagom-seed-3
+      - HOST_IP=lagom-seed-2
+      - HOST_PORT=2552
+    networks:
+      justicenetwork:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 20s
+        max_attempts: 3
+        window: 120s
+  lagom-seed-3:
+    image: ${DB_HOST_IP}:5000/justice-league
+    environment:
+      - DB_HOST_IP=192.168.1.244
+      - BIND_IP=0.0.0.0
+      - CLUSTER_IP1=lagom-seed-1
+      - CLUSTER_IP2=lagom-seed-2
+      - CLUSTER_IP3=lagom-seed-3
+      - HOST_IP=lagom-seed-3
+      - HOST_PORT=2551
+    networks:
+      justicenetwork:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 20s
+        max_attempts: 3
+        window: 120s
+networks:
+  justicenetwork:

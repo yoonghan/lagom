@@ -1,0 +1,26 @@
+version: '2'
+services:
+  web:
+    container_name: justice-league
+    image: ${DB_HOST_IP}:5000/justice-league
+    ports:
+      - "9000:9000"
+      - "2551:2551"
+    environment:
+      - BIND_IP=0.0.0.0
+      - DB_HOST_IP=192.168.1.244
+      - CLUSTER_IP1=${CLUSTER_HOST_IP1}
+      - CLUSTER_IP2=${CLUSTER_HOST_IP2}
+      - CLUSTER_IP3=${CLUSTER_HOST_IP3}
+      - HOST_IP=${HOST_IP}
+      - HOST_PORT=2551
+    networks:
+      justicenetwork:
+        ipv4_address: 172.10.0.2
+networks:
+  justicenetwork:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.10.0.0/16
+          gateway: 172.10.0.1
