@@ -13,7 +13,7 @@ object JusticeLeagueService {
 
 trait JusticeLeagueService extends Service {
   def callHero(id: String): ServiceCall[NotUsed, String]
-  
+
   override final def descriptor = {
     import Service._
     named("justice-lagom")

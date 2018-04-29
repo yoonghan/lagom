@@ -20,28 +20,14 @@ object Hero {
 class JusticeLeagueEntity extends PersistentEntity {
   
   override type Command = HeroCommand[_]
-  override type Event = HeroEvent
   override type State = HeroState
 
   override def initialState: HeroState = HeroState("GalGadot", LocalDateTime.now.toString)
 
   override def behavior: Behavior = {
-    case HeroState(message, _) => Actions().onCommand[UseGreetingMessage, Done] {
-
-      case (UseGreetingMessage(newMessage), ctx, state) =>
-        ctx.thenPersist(
-          GreetingMessageChanged(newMessage)
-        ) { _ =>
-          ctx.reply(Done)
-        }
-
-    }.onReadOnlyCommand[Hero, String] {
+    case HeroState(message, _) => Actions().onReadOnlyCommand[Hero, String] {
       case (Hero(name), ctx, state) =>
         ctx.reply(s"$message, $name!")
-
-    }.onEvent {
-      case (GreetingMessageChanged(newMessage), state) =>
-        HeroState(newMessage, LocalDateTime.now().toString)
 
     }
   }
@@ -61,23 +47,9 @@ object HeroState {
   implicit val format: Format[HeroState] = Json.format
 }
 
-case class UseGreetingMessage(message: String) extends HeroCommand[Done]
-
-object UseGreetingMessage {
-  implicit val format: Format[UseGreetingMessage] = Json.format
-}
-
-case class GreetingMessageChanged(message: String) extends HeroEvent
-
-object GreetingMessageChanged {
-  implicit val format: Format[GreetingMessageChanged] = Json.format
-}
-
 object JusticeLeagueSerializerRegistry extends JsonSerializerRegistry {
   override def serializers: Seq[JsonSerializer[_]] = Seq(
-    JsonSerializer[UseGreetingMessage],
     JsonSerializer[Hero],
-    JsonSerializer[GreetingMessageChanged],
     JsonSerializer[HeroState]
   )
 }

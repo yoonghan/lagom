@@ -1,50 +1,86 @@
-# Description
-This is a very simple Lagom program to test the deployment for lagom in Docker. The examples provided are either ConductR or Kubernetes but without pure Lagom on Docker.
+# Lagom on Docker Swarm
 
-## Steps
- 1. Build docker via:
+## Description
+This is a very simple Lagom program to test the deployment for lagom in Docker Swarm.  The example below are divided into 2 projects.
+* Justice-League - this project is a pure echo project, doing an echo of input to output
+* Avengers - a more complex program that uses message broker to publish input to kafka and being retrieved later.
+
+## Developer mode
+1. Replace the tmp/application.conf file in both avengers-impl/src/main/resources and justice-league-impl/src/main/resources
+2. Replacing application.conf are the most minimal calls and default all calls to build.sbt loaders.
+3. Start the applcation with
 ```
-sbt clean docker:publishLocal
+sbt runAll
 ```
+4. Within build.sbt there are these lines. Uncomment and change accordingly to point to external Kafka or Cassandra. Kafka or cassandra will not work once "false" line are uncommented.
+```
+//lagomKafkaEnabled in ThisBuild := false
+//lagomKafkaAddress in ThisBuild := "localhost:9092"
+//lagomCassandraEnabled in ThisBuild := false
+//lagomUnmanagedServices in ThisBuild := Map("cas_native" -> "http://localhost:9042")
+```
+
+
+## Docker build steps
+Presume that docker is installed on the machine.
+ 1. Build docker via, every different Operating system and processors, i.e. ARM, AMD, Intel needs a rebuild:
+ ```
+ sbt clean docker:publishLocal
+ ```
  2. Run docker images to locate for the built profile
+ ```
+ docker images
+ ```
+ 3. Run a docker cassandra with give port 9042
+ ```
+ docker run -p9042:9042 cassandra
+ ```
+ 4. Run zookeeper with given port of 2181, below is default
+ ```
+ ./zkServer.sh start ../conf/zoo_sample.cfg
+ ```
+ 5. Modify kafka's server.properties to make it server wide available
+ ```
+ listeners=PLAINTEXT://192.168.1.244:9092
+ advertised.listeners=PLAINTEXT://192.168.1.244:9092
 ```
-docker images
-```
- 3. Run a docker with give port 9042
-```
-docker run -p9042:9042 cassandra
-```
- 4. Change the local pc ip of connection point in justice-league-impl/src/main/resources/application.conf
+ 6. Run kafka to zookeeper with given port 9092
+ ```
+ bin/kafka-topics.sh --list --zookeeper localhost:2181
+ ```
+ 7. Change the local pc ip of connection point in justice-league-impl/src/main/resources/application.conf
 ```
 //Cassandra's docker Host IP, not docker's ip
  contact-points = ["192.168.1.244"]
 ```
- 5. Create a docker network
+ 8. Create a docker network
 ```
 sudo docker network create --subnet=172.20.0.0/16 justicenetwork
 ```
- 6. Execute docker with TAG given, for same server the -p9000:9000 needs to be removed. p2551 and host port need to change
+ 9. Execute docker with TAG given, for same server the -p9000:9000 needs to be removed. p2551 and host port need to change
 ```
 sudo docker run -p9000:9000 \
 -p2551:2551 \
 --net justicenetwork --ip 172.20.0.2 \
--e BIND_ID=0.0.0.0 \
+-e BIND_IP=0.0.0.0 \
+-e DB_HOST_IP=192.168.1.244 \
+-e KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092 \
 -e CLUSTER_IP1=192.168.1.193 \
 -e CLUSTER_IP2=192.168.1.38 -e CLUSTER_PORT2=2551 \
 -e CLUSTER_IP3=192.168.1.4 -e CLUSTER_PORT3=2551 \
 -e HOST_IP=192.168.1.193 -e HOST_PORT=2551 \
-192.168.1.244:5000/justice-league
+avengers-impl
 ```
- 6. Execute in browser
+ 10. Execute in browser
 ```
 http://localhost:9000/api/hero/GalGadot
 ```
- 7. Stop docker
+ 11. Stop docker
 ```
 docker ps --all
 docker rm <container-id>
 ```
- 8. Create a docker compose which is a docker-compose.yml file
+ 12. Create a docker compose which is a docker-compose.yml file
  ```
  #view docker-compose.yml
  version: '2'
@@ -56,8 +92,9 @@ docker rm <container-id>
       - "9000:9000"
       - "2551:2551"
     environment:
-      - BIND_ID=0.0.0.0
-      - DB_HOST_IP=192.168.1.244
+      - BIND_IP=0.0.0.0
+      - DB_HOST_IP=${DB_HOST_IP}
+      - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
       - CLUSTER_IP1=${CLUSTER_HOST_IP1}
       - CLUSTER_IP2=${CLUSTER_HOST_IP2}
       - CLUSTER_IP3=${CLUSTER_HOST_IP3}
@@ -74,35 +111,36 @@ networks:
         - subnet: 172.10.0.0/16
           gateway: 172.10.0.1
  ```
- 9. Export DB_HOST_IP
+ 13. Export DB_HOST_IP
  ```
   export DB_HOST_IP=192.168.1.244
+  export KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092
   export CLUSTER_HOST_IP1=192.168.1.38
   export CLUSTER_HOST_IP2=192.168.1.4
   export CLUSTER_HOST_IP3=192.168.1.193
   export HOST_IP=192.168.1.38
  ```
- 10. Test with
+ 14. Test with
 ```
  docker-compose up
 ```
- 12. Check all ok, then Ctrl-C
+ 15. Check all ok, then Ctrl-C
 ```
  docker-compose down --volumes
  docker ps
  #remove all necessary
 ```
- 13. Run docker's registery as a service
+ 16. Run docker's registery as a service
  ```
  docker service create --name registry --publish published=5000,target=5000 registry:2
  #Make sure the https/unsecure settings has been set for all hosts
  ```
- 14. Publish lagom into registry
+ 17. Publish lagom into registry
  ```
  docker tag justice-league-impl:1.0-SNAPSHOT 192.168.1.244:5000/justice-league
  docker push 192.168.1.244:5000/justice-league
  ```
- 15. First version - to expose 1 web, but connected akka cluster
+ 18. First version - to expose 1 web, but connected akka cluster
  ```
  version: '3'
  services:
@@ -180,12 +218,12 @@ networks:
  networks:
    justicenetwork:
  ```
- 16. Start docker
+ 19. Start docker
   ```
   docker swarm init --advertise-addr 192.168.1.38
   # Run all the nodes with the provided command
   ```
- 17. Suggest to see a visualizer, below codes only works for raspberry pi.
+ 20. Suggest to see a visualizer, below codes only works for raspberry pi.
   ```
   docker service create \
   --name viz \
@@ -194,7 +232,7 @@ networks:
   --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
   alexellis2/visualizer-arm:latest
   ```
- 18. Execute
+ 21. Execute
  ```
  docker stack deploy -c docker-compose.yml dccomic
  # Check and see if replicas is 1.
@@ -284,3 +322,9 @@ Else another solution is to create a docker network and assign static ip.
 ```
 docker create network
 ```
+
+*Problem*: Error after topic is created, Connection to node -1 could not be established. Broker may not be available.
+*Solution*: Kafka not started, in MacOS, the /etc/hosts has to enable your hostname to point to 127.0.0.1
+
+*Problem*: After message broker published a topic, an error appear after 60 minutes with "org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after 60000 ms.". Of with subscription, the error appeared was "akka.actor.OneForOneStrategy [sourceThread=avengers-impl-application-akka.actor.default-dispatcher-3, akkaSource=akka://avengers-impl-application/system/sharding/kafkaProducer-Avengers/com.walcron.avengers.impl.AvengersTimelineEvent1/com.walcron.avengers.impl.AvengersTimelineEvent1/producer, sourceActorSystem=avengers-impl-application, akkaTimestamp=23:28:15.733UTC] - Failed to update metadata after 60000 ms."
+*Solution*: Pointed to wrong kafka port, most probably it was pointing to Zookeeper and not Kafka. Change it, default port is 9092.
