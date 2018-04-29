@@ -8,10 +8,11 @@ services:
       - "2551:2551"
     environment:
       - BIND_IP=0.0.0.0
+      - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
       - DB_HOST_IP=192.168.1.244
-      - CLUSTER_IP1=${CLUSTER_HOST_IP1}
-      - CLUSTER_IP2=${CLUSTER_HOST_IP2}
-      - CLUSTER_IP3=${CLUSTER_HOST_IP3}
+      - CLUSTER_IP1=${HOST_IP}
+      - CLUSTER_IP2=${CLUSTER_IP2}
+      - CLUSTER_IP3=${CLUSTER_IP3}
       - HOST_IP=${HOST_IP}
       - HOST_PORT=2551
     networks:

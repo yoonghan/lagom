@@ -113,12 +113,14 @@ networks:
  ```
  13. Export DB_HOST_IP
  ```
+  export BIND_IP=0.0.0.0
   export DB_HOST_IP=192.168.1.244
   export KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092
-  export CLUSTER_HOST_IP1=192.168.1.38
-  export CLUSTER_HOST_IP2=192.168.1.4
-  export CLUSTER_HOST_IP3=192.168.1.193
+  export CLUSTER_IP1=192.168.1.38
+  export CLUSTER_IP2=192.168.1.4
+  export CLUSTER_IP3=192.168.1.193
   export HOST_IP=192.168.1.38
+  export HOST_PORT=2551
  ```
  14. Test with
 ```
@@ -140,7 +142,7 @@ networks:
  docker tag justice-league-impl:1.0-SNAPSHOT 192.168.1.244:5000/justice-league
  docker push 192.168.1.244:5000/justice-league
  ```
- 18. First version - to expose 1 web, but connected akka cluster
+ 18. First version - to expose 1 web, but connected akka cluster, the docker.yml looks as follow
  ```
  version: '3'
  services:
@@ -151,6 +153,7 @@ networks:
      environment:
        - DB_HOST_IP=192.168.1.244
        - BIND_IP=0.0.0.0
+       - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
        - CLUSTER_IP2=lagom-seed-2
        - CLUSTER_IP3=lagom-seed-3
@@ -174,6 +177,7 @@ networks:
      environment:
        - DB_HOST_IP=192.168.1.244
        - BIND_IP=0.0.0.0
+       - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
        - CLUSTER_IP2=lagom-seed-2
        - CLUSTER_IP3=lagom-seed-3
@@ -197,6 +201,7 @@ networks:
      environment:
        - DB_HOST_IP=192.168.1.244
        - BIND_IP=0.0.0.0
+       - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
        - CLUSTER_IP2=lagom-seed-2
        - CLUSTER_IP3=lagom-seed-3
@@ -328,3 +333,6 @@ docker create network
 
 *Problem*: After message broker published a topic, an error appear after 60 minutes with "org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after 60000 ms.". Of with subscription, the error appeared was "akka.actor.OneForOneStrategy [sourceThread=avengers-impl-application-akka.actor.default-dispatcher-3, akkaSource=akka://avengers-impl-application/system/sharding/kafkaProducer-Avengers/com.walcron.avengers.impl.AvengersTimelineEvent1/com.walcron.avengers.impl.AvengersTimelineEvent1/producer, sourceActorSystem=avengers-impl-application, akkaTimestamp=23:28:15.733UTC] - Failed to update metadata after 60000 ms."
 *Solution*: Pointed to wrong kafka port, most probably it was pointing to Zookeeper and not Kafka. Change it, default port is 9092.
+
+*Problem*: Trying to register to coordinator at [None], but no acknowledgement.
+*Solution*: Adjust akka cluster start up. This problem is due to the first akka cluster not found. E.g. I start lagom in server 192.1.1.1, so the seed must start with akka.cluster.seed-nodes=[192.1.1.1, 192.1.1.2] before 192.1.1.2.
