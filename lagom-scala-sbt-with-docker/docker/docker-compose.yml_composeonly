@@ -1,3 +1,4 @@
+# Start with docker-compose up in each and every server
 version: '2'
 services:
   web:
@@ -10,9 +11,8 @@ services:
       - BIND_IP=0.0.0.0
       - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
       - DB_HOST_IP=192.168.1.244
-      - CLUSTER_IP1=${HOST_IP}
+      - CLUSTER_IP1=${CLUSTER_IP1}
       - CLUSTER_IP2=${CLUSTER_IP2}
-      - CLUSTER_IP3=${CLUSTER_IP3}
       - HOST_IP=${HOST_IP}
       - HOST_PORT=2551
     networks:

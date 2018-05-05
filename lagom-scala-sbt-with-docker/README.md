@@ -46,7 +46,7 @@ Presume that docker is installed on the machine.
 ```
  6. Run kafka to zookeeper with given port 9092
  ```
- bin/kafka-topics.sh --list --zookeeper localhost:2181
+ bin/kafka-server-start.sh config/server.properties
  ```
  7. Change the local pc ip of connection point in justice-league-impl/src/main/resources/application.conf
 ```
@@ -67,7 +67,6 @@ sudo docker run -p9000:9000 \
 -e KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092 \
 -e CLUSTER_IP1=192.168.1.193 \
 -e CLUSTER_IP2=192.168.1.38 -e CLUSTER_PORT2=2551 \
--e CLUSTER_IP3=192.168.1.4 -e CLUSTER_PORT3=2551 \
 -e HOST_IP=192.168.1.193 -e HOST_PORT=2551 \
 avengers-impl
 ```
@@ -95,9 +94,8 @@ docker rm <container-id>
       - BIND_IP=0.0.0.0
       - DB_HOST_IP=${DB_HOST_IP}
       - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
-      - CLUSTER_IP1=${CLUSTER_HOST_IP1}
-      - CLUSTER_IP2=${CLUSTER_HOST_IP2}
-      - CLUSTER_IP3=${CLUSTER_HOST_IP3}
+      - CLUSTER_IP1=${CLUSTER_IP1}
+      - CLUSTER_IP2=${CLUSTER_IP2}
       - HOST_IP=${HOST_IP}
       - HOST_PORT=2551
     networks:
@@ -116,9 +114,8 @@ networks:
   export BIND_IP=0.0.0.0
   export DB_HOST_IP=192.168.1.244
   export KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092
-  export CLUSTER_IP1=192.168.1.38
+  export CLUSTER_IP1=192.168.1.193
   export CLUSTER_IP2=192.168.1.4
-  export CLUSTER_IP3=192.168.1.193
   export HOST_IP=192.168.1.38
   export HOST_PORT=2551
  ```
@@ -126,7 +123,7 @@ networks:
 ```
  docker-compose up
 ```
- 15. Check all ok, then Ctrl-C
+ 15. Run for the other 2 servers adjusting the host_ip. Check all is ok, then Ctrl-C
 ```
  docker-compose down --volumes
  docker ps
@@ -156,7 +153,6 @@ networks:
        - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
        - CLUSTER_IP2=lagom-seed-2
-       - CLUSTER_IP3=lagom-seed-3
        - HOST_IP=lagom-seed-1
        - HOST_PORT=2551
      networks:
@@ -179,8 +175,7 @@ networks:
        - BIND_IP=0.0.0.0
        - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
-       - CLUSTER_IP2=lagom-seed-2
-       - CLUSTER_IP3=lagom-seed-3
+       - CLUSTER_IP2=lagom-seed-3
        - HOST_IP=lagom-seed-2
        - HOST_PORT=2552
      networks:
@@ -204,7 +199,6 @@ networks:
        - KAFKA_HOST_IP_AND_PORT=${KAFKA_HOST_IP_AND_PORT}
        - CLUSTER_IP1=lagom-seed-1
        - CLUSTER_IP2=lagom-seed-2
-       - CLUSTER_IP3=lagom-seed-3
        - HOST_IP=lagom-seed-3
        - HOST_PORT=2551
      networks:
@@ -228,6 +222,10 @@ networks:
   docker swarm init --advertise-addr 192.168.1.38
   # Run all the nodes with the provided command
   ```
+ 191. All other nodes need to run
+ ```
+ docker swarm join --token XXXX
+ ```
  20. Suggest to see a visualizer, below codes only works for raspberry pi.
   ```
   docker service create \
@@ -245,10 +243,56 @@ networks:
  # In the node where the service is running, do. The service can be check in visualizer
  docker container ls
  docker logs --follow <container id>
+
+ # Remove
+ docker stack rm dccomic
  ```
+ 22. List kafka topic with
+ ```
+ bin/kafka-topics.sh --list --zookeeper localhost:2181
+ ```
+ 23. The ultimate version for docker-compose.yml will be
+ ```
+ version: '3'
+ services:
+   lagom-with-seed:
+     image: ${DB_HOST_IP}:5000/justice-league
+     ports:
+       - "9000:9000"
+     environment:
+       - DB_HOST_IP=192.168.1.244
+       - BIND_IP=0.0.0.0
+       - KAFKA_HOST_IP_AND_PORT=192.168.1.244:9092
+       - CLUSTER_IP1=lagom-with-seed
+       - CLUSTER_IP2=lagom-with-seed
+       - HOST_IP=lagom-with-seed
+       - HOST_PORT=2551
+     networks:
+       justicenetwork:
+     deploy:
+       replicas: 3
+       resources:
+         limits:
+           cpus: "0.1"
+           memory: 512M
+       restart_policy:
+         condition: on-failure
+         delay: 20s
+         max_attempts: 3
+         window: 120s
+ networks:
+   justicenetwork:
+ ```
+ 24. Check the logs, and notice that the state changes from [UP] to [Start -> Oldest] as it is connecting within itself.
+ ```
+ docker container ls
+ docker logs <container id>
+ ```
+ 25. To verify cluster is working, run "http://192.168.1.38:9000/api/assembleteam/galgadot", wait 2 seconds and view the logs, it'll be noticeable that all servers ran the insert, but it only inserts once.
 
 ## Issues encountered:
  *Problem*: Cluster Node [akka.tcp://application@172.17.0.4:2552] - No seed-nodes configured, manual cluster join required*
+
  *Solution*: Add seeds into application.conf. But because serverlocator runs in single cluster, I have added into
 ```
  lagom.defaults.cluster.join-self = on
@@ -277,8 +321,10 @@ lagom.persistence.ask-timeout=30s
 
 ```
 
+
 *Problem*: Ask timed out on [Actor[akka://application/system/sharding/JusticeLeagueEntity#-235261372]] after [5000 ms]. Sender[null] sent message of type "com.lightbend.lagom.scaladsl.persistence.CommandEnvelope".
 *Solution*: Due to no JOINED seed, solution is as of above.
+
 
 *Problem*: Failed to connect to Cassandra and initialize. It will be retried on demand. Caused by: No contact points for [cas_native]
 *Solution*: As the build does not include a local cassandra, it needs to be referred externally. In doing so, we can let it connect via
@@ -307,7 +353,9 @@ lagom.persistence.read-side.cassandra {
 
 ```
 
+
 *Problem*: Failed to connect to Cassandra and initialize. It will be retried on demand. Caused by: All host(s) tried for query failed (tried: /192.168.1.244:9042 (com.datastax.driver.core.exceptions.TransportException: [/192.168.1.244:9042] Cannot connect))
+
 *Solution*: Exception locating cassandara, change the application.conf and recompile with the correct Host running docker ip.
 ```
 cassandra.default {
@@ -318,7 +366,9 @@ cassandra.default {
 }
 ```
 
+
 *Problem*: Using seeds connection, the connection does not connect.
+
 *Solution*: The seeds bind-host must be correctly set to the docker's internal ip. Do not use 127.0.0.1. To check the internal ip use:
 ```
 docker inspect <container_id>
@@ -328,11 +378,28 @@ Else another solution is to create a docker network and assign static ip.
 docker create network
 ```
 
+
 *Problem*: Error after topic is created, Connection to node -1 could not be established. Broker may not be available.
+
 *Solution*: Kafka not started, in MacOS, the /etc/hosts has to enable your hostname to point to 127.0.0.1
 
+
 *Problem*: After message broker published a topic, an error appear after 60 minutes with "org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after 60000 ms.". Of with subscription, the error appeared was "akka.actor.OneForOneStrategy [sourceThread=avengers-impl-application-akka.actor.default-dispatcher-3, akkaSource=akka://avengers-impl-application/system/sharding/kafkaProducer-Avengers/com.walcron.avengers.impl.AvengersTimelineEvent1/com.walcron.avengers.impl.AvengersTimelineEvent1/producer, sourceActorSystem=avengers-impl-application, akkaTimestamp=23:28:15.733UTC] - Failed to update metadata after 60000 ms."
+
 *Solution*: Pointed to wrong kafka port, most probably it was pointing to Zookeeper and not Kafka. Change it, default port is 9092.
 
+
 *Problem*: Trying to register to coordinator at [None], but no acknowledgement.
+
 *Solution*: Adjust akka cluster start up. This problem is due to the first akka cluster not found. E.g. I start lagom in server 192.1.1.1, so the seed must start with akka.cluster.seed-nodes=[192.1.1.1, 192.1.1.2] before 192.1.1.2.
+
+
+*Problem*: After running docker-stack, the images are not replicated through all servers
+
+*Solution*: Remove all images in all nodes via the command "docker image rm <image id>". Then make sure the image is tagged and push into registry. These can be check visualizer
+```
+#On main Swarm, Check replicate column is 1/1 and Image is correct, it needs to be pulled from all other servers
+docker service ls
+#All swarm worker, remove all and see if it is pulled after some moment. If it takes too long, suggest to pull by your own.
+docker image ls
+```
