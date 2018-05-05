@@ -246,6 +246,7 @@ networks:
 
  # Remove
  docker stack rm dccomic
+ docker service rm [serviceid for viz]
  ```
  22. List kafka topic with
  ```
